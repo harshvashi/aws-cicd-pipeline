@@ -139,6 +139,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug repo structure
+        run: ls -R
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -152,24 +155,17 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        working-directory: ./terraform/environments/prod
+        working-directory: ./terraform
         run: terraform init -backend-config="bucket=${{ secrets.TERRAFORM_STATE_BUCKET }}"
 
       - name: Terraform Validate
-        working-directory: ./terraform/environments/prod
+        working-directory: ./terraform
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: ./terraform/environments/prod
+        working-directory: ./terraform
         run: terraform plan -out=tfplan
         continue-on-error: true
-
-      - name: Upload Terraform plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform/environments/prod/tfplan
-          retention-days: 7
 
   # ============================================
   # Deploy to Staging (Develop branch)
