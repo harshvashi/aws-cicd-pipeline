@@ -52,9 +52,12 @@ app.use((err: Error, req: Request, res: Response) => {
   });
 });
 
-app.listen(PORT, (): void => {
-  console.log(`Application running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Start server only in production or dev (not in tests)
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, (): void => {
+    console.log(`Application running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
 
 export default app;
