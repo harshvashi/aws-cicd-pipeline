@@ -1,4 +1,4 @@
-# filepath: Dockerfile
+# Use Node.js
 FROM node:20-alpine
 
 # Set working directory
@@ -8,21 +8,16 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
-# Copy built application
-COPY dist/ ./dist/
+# Copy full source code
+COPY . .
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
+# Build inside container
+RUN npm run build
 
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e 'require("http").get("http://localhost:3000/health", (r) => process.exit(r.statusCode === 200 ? 0 : 1))'
-
-# Start application
+# Start app
 CMD ["node", "dist/index.js"]
