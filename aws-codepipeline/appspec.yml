@@ -1,0 +1,54 @@
+# filepath: aws-codepipeline/appspec.yml
+# AWS CodeDeploy AppSpec File
+
+version: 0.0
+resources:
+  - name: my-app-alb
+    type: AWS::ElasticLoadBalancing::LoadBalancer
+    properties:
+      name: my-app-alb
+
+os: linux
+
+files:
+  - source: /
+    destination: /opt/my-app
+    overwrite: true
+
+permissions:
+  - object: /opt/my-app
+    pattern: "**"
+    owner: root
+    group: root
+    mode: 755
+
+hooks:
+  # Before installation
+  BeforeInstall:
+    - location: scripts/before-install.sh
+      timeout: 300
+      runas: root
+
+  # After installation
+  AfterInstall:
+    - location: scripts/after-install.sh
+      timeout: 300
+      runas: root
+
+  # Application start
+  ApplicationStart:
+    - location: scripts/application-start.sh
+      timeout: 300
+      runas: root
+
+  # Validate deployment
+  ValidateService:
+    - location: scripts/validate-service.sh
+      timeout: 300
+      runas: root
+
+  # Traffic shift (for Blue/Green)
+  AllowTraffic:
+    - location: scripts/allow-traffic.sh
+      timeout: 300
+      runas: root

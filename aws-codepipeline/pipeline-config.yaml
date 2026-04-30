@@ -1,0 +1,88 @@
+# AWS CodePipeline Configuration
+# This file defines the pipeline structure for AWS CodePipeline
+
+# Pipeline Name
+pipeline_name: "my-app-cicd-pipeline"
+
+# Stage 1: Source
+source:
+  provider: "GitHub"
+  repository: "your-username/my-app"
+  branch: "main"
+  oauth_token: "GITHUB_OAUTH_TOKEN"  # Store in Secrets Manager
+
+# Stage 2: Build
+build:
+  provider: "CodeBuild"
+  project_name: "my-app-build"
+  
+  environment:
+    compute_type: "BUILD_GENERAL1_MEDIUM"
+    image: "aws/codebuild/standard:7.0"
+    type: "LINUX_CONTAINER"
+    privileged_mode: true
+  
+  build_spec: |
+    version: 0.2
+    env:
+      variables:
+        APP_NAME: "my-app"
+        AWS_REGION: "us-east-1"
+    
+    phases:
+      install:
+        runtime-versions:
+          nodejs: 20
+        commands:
+          - npm ci
+      
+      pre_build:
+        commands:
+          - npm run lint
+          - npm test
+      
+      build:
+        commands:
+          - npm run build
+          - docker build -t $APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION .
+          - docker tag $APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION
+      
+      post_build:
+        commands:
+          - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION
+          - printf '{"ImageURI":"%s"}' $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION > imageDetail.json
+    
+    artifacts:
+      files:
+        - imageDetail.json
+        - appspec.yml
+        - scripts/*
+      name: "build-output"
+
+# Stage 3: Deploy (Staging)
+deploy_staging:
+  provider: "CodeDeploy"
+  application_name: "my-app"
+  deployment_group: "staging"
+  
+  config:
+    deployment_type: "InPlace"
+    instance_timeout: 30
+
+# Stage 4: Approval
+approval:
+  stage: "staging_production"
+  approval_type: "Manual"
+  notification_topic: "arn:aws:sns:us-east-1:ACCOUNT_ID:my-app-notifications"
+  custom_data: "Please review the deployment and approve for production"
+
+# Stage 5: Deploy (Production)
+deploy_production:
+  provider: "CodeDeploy"
+  application_name: "my-app"
+  deployment_group: "production"
+  
+  config:
+    deployment_type: "BlueGreen"
+    instance_timeout: 30
+    elb_info: "my-app-alb"

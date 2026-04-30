@@ -1,0 +1,59 @@
+# filepath: aws-codepipeline/buildspec.yml
+# AWS CodeBuild Build Specification
+
+version: 0.2
+
+env:
+  variables:
+    APP_NAME: "my-app"
+    AWS_REGION: "us-east-1"
+    NODE_ENV: "production"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Installing dependencies..."
+      - npm ci
+      - echo "Installing dependencies complete"
+
+  pre_build:
+    commands:
+      - echo "Running pre-build checks..."
+      - npm run lint
+      - npm test -- --coverage
+      - echo "Pre-build checks complete"
+
+  build:
+    commands:
+      - echo "Building application..."
+      - npm run build
+      - echo "Building Docker image..."
+      - docker build -t $APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION .
+      - docker tag $APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION
+      - docker tag $APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:latest
+      - echo "Build complete"
+
+  post_build:
+    commands:
+      - echo "Pushing Docker image to ECR..."
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:latest
+      - echo "Creating image detail file..."
+      - printf '{"ImageURI":"%s"}' $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME:$CODEBUILD_RESOLVED_REFERENCE_VERSION > imageDetail.json
+      - echo "Build and push complete"
+
+artifacts:
+  files:
+    - imageDetail.json
+    - appspec.yml
+    - scripts/*
+  name: "build-output"
+  discard-paths: yes
+
+cache:
+  paths:
+    - node_modules/**/*
+    - .npm/**/*
