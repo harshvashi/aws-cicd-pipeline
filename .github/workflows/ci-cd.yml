@@ -6,7 +6,9 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-
+permissions:
+  contents: read
+  security-events: write  # Required for SARIF upload
 env:
   AWS_REGION: us-east-1
   APP_NAME: my-app
