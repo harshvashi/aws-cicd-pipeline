@@ -52,7 +52,7 @@ app.use((err: Error, req: Request, res: Response) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, (): void => {
   console.log(`Application running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
