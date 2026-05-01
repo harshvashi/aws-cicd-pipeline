@@ -176,8 +176,7 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: [build, terraform-validate]
-    if: github.ref == 'refs/heads/develop' && secrets.STAGING_URL != ''
-    environment: staging
+    if: github.ref == 'refs/heads/develop'
     
     steps:
       - name: Checkout code
@@ -200,8 +199,7 @@ jobs:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build, terraform-validate]
-    if: github.ref == 'refs/heads/main' && secrets.PROD_URL != ''
-    environment: production
+    if: github.ref == 'refs/heads/main'
     
     steps:
       - name: Checkout code
