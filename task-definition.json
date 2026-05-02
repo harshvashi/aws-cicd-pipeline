@@ -1,6 +1,7 @@
 {
   "family": "my-app",
   "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::885000707645:role/prod-my-app-ecs-task-execution",
   "containerDefinitions": [
     {
       "name": "my-app",

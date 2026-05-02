@@ -87,6 +87,7 @@ jobs:
     
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
+      image-uri: ${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}:${{ github.sha }}
     
     steps:
       - name: Checkout code
@@ -117,6 +118,7 @@ jobs:
             type=sha,prefix={{branch}}-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ github.sha }}
             type=raw,value=latest
 
       - name: Build and push Docker image
@@ -189,23 +191,28 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Render ECS task definition
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.APP_NAME }}
+          image: ${{ needs.build.outputs.image-uri }}
+
+      - name: Deploy ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          service: staging-service
+          cluster: prod-cluster
+          wait-for-service-stability: true
+
       - name: Deploy to ECS Staging
         run: |
           CLUSTER_NAME="prod-cluster"
           SERVICE_NAME="staging-service"
           STAGING_URL="${{ secrets.STAGING_URL }}"
-          
-          echo "Checking if ECS service exists..."
-          if aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME 2>/dev/null | grep -q "$SERVICE_NAME"; then
-            echo "ECS service found, updating..."
-            aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
-            echo "Waiting for service to stabilize..."
-            aws ecs wait services-stable --cluster $CLUSTER_NAME --services $SERVICE_NAME
-            echo "Service updated successfully"
-          else
-            echo "ECS service not found, skipping deployment"
-            exit 0
-          fi
+          aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME
           
           # Health check
           if [ -z "$STAGING_URL" ]; then
@@ -248,22 +255,28 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Render ECS task definition
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.APP_NAME }}
+          image: ${{ needs.build.outputs.image-uri }}
+
+      - name: Deploy ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          service: prod-service
+          cluster: prod-cluster
+          wait-for-service-stability: true
+
       - name: Deploy to ECS Production
         run: |
           CLUSTER_NAME="prod-cluster"
           SERVICE_NAME="prod-service"
           PROD_URL="${{ secrets.PROD_URL }}"
-          
-          echo "Checking if ECS service exists..."
-          if aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME 2>/dev/null | grep -q "$SERVICE_NAME"; then
-            echo "ECS service found, updating..."
-            aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
-            echo "Waiting for service to stabilize..."
-            aws ecs wait services-stable --cluster $CLUSTER_NAME --services $SERVICE_NAME
-            echo "Service updated successfully"
-          else
-            echo "ECS service not found, checking health endpoint instead..."
-          fi
+          aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME
           
           # Health check
           if [ -z "$PROD_URL" ]; then
