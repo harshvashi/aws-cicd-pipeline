@@ -4,6 +4,9 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
+# Install runtime tools used by the ECS container health check
+RUN apk add --no-cache curl
+
 # Copy package files
 COPY package*.json ./
 
