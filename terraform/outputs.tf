@@ -57,3 +57,29 @@ output "cloudwatch_log_group" {
   description = "CloudWatch log group name"
   value       = module.cloudwatch.log_group_name
 }
+
+# ECS Outputs
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster used by the CI/CD pipeline"
+  value       = aws_ecs_cluster.main.name
+}
+
+output "ecs_prod_service_name" {
+  description = "Name of the production ECS service"
+  value       = aws_ecs_service.prod.name
+}
+
+output "ecs_staging_service_name" {
+  description = "Name of the staging ECS service"
+  value       = aws_ecs_service.staging.name
+}
+
+output "ecs_task_execution_role_arn" {
+  description = "ARN of the ECS task execution role"
+  value       = aws_iam_role.ecs_task_execution.arn
+}
+
+output "ecs_target_group_arn" {
+  description = "ARN of the ECS target group"
+  value       = aws_lb_target_group.ecs.arn
+}

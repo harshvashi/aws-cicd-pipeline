@@ -128,3 +128,7 @@ output "target_group_arn" {
 output "target_group_name" {
   value = aws_lb_target_group.main.name
 }
+
+output "http_listener_arn" {
+  value = aws_lb_listener.http.arn
+}

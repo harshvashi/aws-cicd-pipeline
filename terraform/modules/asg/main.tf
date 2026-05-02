@@ -110,7 +110,7 @@ resource "aws_launch_template" "main" {
 
   tag_specifications {
     resource_type = "volume"
-    tags = var.tags
+    tags          = var.tags
   }
 
   lifecycle {
@@ -120,12 +120,12 @@ resource "aws_launch_template" "main" {
 
 # Auto Scaling Group
 resource "aws_autoscaling_group" "main" {
-  name                = "${var.environment}-asg"
-  vpc_zone_identifier = var.private_subnet_ids
-  desired_capacity    = var.desired_capacity
-  min_size            = var.min_size
-  max_size            = var.max_size
-  health_check_type   = var.health_check_type
+  name                      = "${var.environment}-asg"
+  vpc_zone_identifier       = var.private_subnet_ids
+  desired_capacity          = var.desired_capacity
+  min_size                  = var.min_size
+  max_size                  = var.max_size
+  health_check_type         = var.health_check_type
   health_check_grace_period = var.health_check_grace_period
 
   launch_template {

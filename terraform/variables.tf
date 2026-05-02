@@ -137,12 +137,55 @@ variable "memory_alarm_threshold" {
   default     = 80
 }
 
+# ECS Configuration
+variable "app_name" {
+  description = "Application name used for ECS resources"
+  type        = string
+  default     = "my-app"
+}
+
+variable "container_image" {
+  description = "Initial container image for ECS task definitions"
+  type        = string
+  default     = "885000707645.dkr.ecr.us-east-1.amazonaws.com/my-app:latest"
+}
+
+variable "container_port" {
+  description = "Container port exposed by the application"
+  type        = number
+  default     = 3000
+}
+
+variable "ecs_task_cpu" {
+  description = "CPU units for the ECS Fargate task"
+  type        = number
+  default     = 256
+}
+
+variable "ecs_task_memory" {
+  description = "Memory in MiB for the ECS Fargate task"
+  type        = number
+  default     = 512
+}
+
+variable "ecs_prod_desired_count" {
+  description = "Desired task count for the production ECS service"
+  type        = number
+  default     = 1
+}
+
+variable "ecs_staging_desired_count" {
+  description = "Desired task count for the staging ECS service"
+  type        = number
+  default     = 0
+}
+
 # Common Tags
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
-  default     = {
-    Project     = "cicd-pipeline"
-    ManagedBy   = "terraform"
+  default = {
+    Project   = "cicd-pipeline"
+    ManagedBy = "terraform"
   }
 }
