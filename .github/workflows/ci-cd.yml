@@ -87,7 +87,7 @@ jobs:
     
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
-      image-uri: ${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}:${{ github.sha }}
+      image-uri: ${{ steps.image.outputs.image-uri }}
     
     steps:
       - name: Checkout code
@@ -107,6 +107,9 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set image URI
+        id: image
+        run: echo "image-uri=${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Extract metadata
         id: meta
