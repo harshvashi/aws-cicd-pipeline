@@ -87,7 +87,7 @@ jobs:
     
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
-      image-uri: ${{ steps.image.outputs.image-uri }}
+      image-uri: ${{ steps.set-image.outputs.image-uri }}
     
     steps:
       - name: Checkout code
@@ -133,6 +133,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Set final image URI output
+        id: set-image
+        run: |
+          IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}:${{ github.sha }}"
+          echo "image-uri=$IMAGE" >> "$GITHUB_OUTPUT"
 
   # ============================================
   # Infrastructure Validation (Terraform)
