@@ -85,10 +85,6 @@ jobs:
     needs: [ci, security]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-      image-uri: ${{ steps.set-image.outputs.image-uri }}
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -107,15 +103,25 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set image URI
+      - name: Set image repository and URI
         id: image
-        run: echo "image-uri=${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        run: |
+          REPOSITORY="${ECR_REPOSITORY:-$APP_NAME}"
+          if [[ "$REPOSITORY" == *".dkr.ecr."*".amazonaws.com/"* ]]; then
+            IMAGE_REPOSITORY="$REPOSITORY"
+          else
+            IMAGE_REPOSITORY="${{ steps.login-ecr.outputs.registry }}/$REPOSITORY"
+          fi
+
+          IMAGE_URI="$IMAGE_REPOSITORY:${{ github.sha }}"
+          echo "image_repository=$IMAGE_REPOSITORY" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}
+          images: ${{ steps.image.outputs.image_repository }}
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
@@ -133,12 +139,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Set final image URI output
-        id: set-image
-        run: |
-          IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.APP_NAME }}:${{ github.sha }}"
-          echo "image-uri=$IMAGE" >> "$GITHUB_OUTPUT"
 
   # ============================================
   # Infrastructure Validation (Terraform)
@@ -200,13 +200,37 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Resolve deploy image URI
+        id: deploy-image
+        run: |
+          REPOSITORY="${ECR_REPOSITORY:-$APP_NAME}"
+          if [[ "$REPOSITORY" == *".dkr.ecr."*".amazonaws.com/"* ]]; then
+            IMAGE_REPOSITORY="$REPOSITORY"
+          else
+            ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+            IMAGE_REPOSITORY="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPOSITORY"
+          fi
+
+          IMAGE_URI="$IMAGE_REPOSITORY:${{ github.sha }}"
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Validate deploy image URI
+        env:
+          IMAGE_URI: ${{ steps.deploy-image.outputs.image_uri }}
+        run: |
+          if [ -z "$IMAGE_URI" ]; then
+            echo "Deploy image URI could not be resolved"
+            exit 1
+          fi
+          echo "Deploying image: $IMAGE_URI"
+
       - name: Render ECS task definition
         id: render-task-definition
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: ${{ env.APP_NAME }}
-          image: ${{ needs.build.outputs.image-uri }}
+          image: ${{ steps.deploy-image.outputs.image_uri }}
 
       - name: Deploy ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
@@ -264,13 +288,37 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Resolve deploy image URI
+        id: deploy-image
+        run: |
+          REPOSITORY="${ECR_REPOSITORY:-$APP_NAME}"
+          if [[ "$REPOSITORY" == *".dkr.ecr."*".amazonaws.com/"* ]]; then
+            IMAGE_REPOSITORY="$REPOSITORY"
+          else
+            ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+            IMAGE_REPOSITORY="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPOSITORY"
+          fi
+
+          IMAGE_URI="$IMAGE_REPOSITORY:${{ github.sha }}"
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Validate deploy image URI
+        env:
+          IMAGE_URI: ${{ steps.deploy-image.outputs.image_uri }}
+        run: |
+          if [ -z "$IMAGE_URI" ]; then
+            echo "Deploy image URI could not be resolved"
+            exit 1
+          fi
+          echo "Deploying image: $IMAGE_URI"
+
       - name: Render ECS task definition
         id: render-task-definition
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: ${{ env.APP_NAME }}
-          image: ${{ needs.build.outputs.image-uri }}
+          image: ${{ steps.deploy-image.outputs.image_uri }}
 
       - name: Deploy ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
